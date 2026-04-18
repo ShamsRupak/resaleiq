@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# Leak check: blocks commits that introduce tokens revealing private context.
+# Set LEAK_CHECK_SKIP=1 to bypass (e.g. LEAK_CHECK_SKIP=1 git commit ...).
+
+set -euo pipefail
+
+if [[ "${LEAK_CHECK_SKIP:-0}" == "1" ]]; then
+  echo "warning: LEAK_CHECK_SKIP=1 set; skipping leak check" >&2
+  exit 0
+fi
+
+# Self-exempt: the hook's own pattern list contains the tokens by design.
+# Also exempt .gitignore since it lists the pattern of protected filenames.
+STAGED_FILES="$(git diff --cached --name-only --diff-filter=AM 2>/dev/null \
+  | grep -vE '^\.githooks/pre-commit$|^\.gitignore$' || true)"
+
+if [[ -z "$STAGED_FILES" ]]; then
+  exit 0
+fi
+
+# Tokens to block. Case-insensitive regex, one pattern per line.
+# Keep this list tight: a false positive blocks legitimate commits.
+PATTERNS=(
+  'phonex'
+  'phone[ -]x'
+  '\bnik\b'
+  'nik raman'
+  'raman'
+  '\bnathan\b'
+  'hellstedt'
+  'interview'
+  'recruiter'
+  'cluely'
+  'nexus ?it'
+  'itochu'
+  'we sell cellular'
+  'usell'
+  'pxhi'
+  'mobile disrupt'
+  '10-?[qk]'
+  'md&a'
+  '\$115[kK]?'
+  '115[kK]\b'
+  '110[kK]\b'
+  '120[kK]\b'
+  '646-?619'
+  'april 20, 2026'
+  'apr 20, 2026'
+  '2026-04-20'
+)
+
+# Build combined alternation pattern.
+PATTERN="$(IFS='|'; echo "${PATTERNS[*]}")"
+
+# Check staged changes (not the full file, only the hunks being added).
+# --cached: staged index
+# --diff-filter=AM: only Added/Modified
+# -U0: zero context lines so we only see changed lines
+# Restrict to non-exempt files.
+STAGED_DIFF="$(git diff --cached --diff-filter=AM -U0 -- $STAGED_FILES 2>/dev/null || true)"
+
+if [[ -z "$STAGED_DIFF" ]]; then
+  exit 0
+fi
+
+# Pull added lines only (start with "+" but not "+++").
+ADDED_LINES="$(printf '%s\n' "$STAGED_DIFF" | grep -E '^\+[^+]' || true)"
+
+if [[ -z "$ADDED_LINES" ]]; then
+  exit 0
+fi
+
+HITS="$(printf '%s\n' "$ADDED_LINES" | grep -iE "$PATTERN" || true)"
+
+if [[ -n "$HITS" ]]; then
+  echo "" >&2
+  echo "pre-commit leak check failed: blocked tokens detected in staged diff" >&2
+  echo "" >&2
+  printf '%s\n' "$HITS" | head -20 >&2
+  echo "" >&2
+  echo "If this is a false positive, bypass with: LEAK_CHECK_SKIP=1 git commit ..." >&2
+  echo "" >&2
+  exit 1
+fi
+
+exit 0

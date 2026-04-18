@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test + lint + type
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: false
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Generate synthetic dataset
+        run: uv run resaleiq-generate
+
+      - name: Train Phase 3 models (produces artifacts used by ML tests)
+        run: |
+          uv run python scripts/train_all_models.py
+          uv run python scripts/counterfactual_analysis.py
+
+      - name: Train lot model
+        run: uv run python scripts/train_lot_model.py
+
+      - name: Ruff lint
+        run: uv run ruff check src tests
+
+      - name: Ruff format check
+        run: uv run ruff format --check src tests
+
+      - name: Mypy
+        run: uv run mypy src
+
+      - name: Pytest
+        run: uv run pytest -ra
+        # SQL tests auto-skip when Postgres is unreachable, which is the
+        # case in this CI job. Expected result: 89 passed, 15 skipped.
+
+  dashboard-smoke:
+    name: dashboard smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: false
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Generate data and train models
+        run: |
+          uv run resaleiq-generate
+          uv run python scripts/train_all_models.py
+          uv run python scripts/counterfactual_analysis.py
+          uv run python scripts/train_lot_model.py
+
+      - name: Smoke test every Streamlit page via AppTest
+        env:
+          PYTHONPATH: ".:src"
+        run: |
+          uv run python - <<'PY'
+          from streamlit.testing.v1 import AppTest
+          import sys
+
+          pages = [
+              "dashboard/app.py",
+              "dashboard/pages/1_Executive_Summary.py",
+              "dashboard/pages/2_Pricing_Model_Performance.py",
+              "dashboard/pages/3_Auction_Lot_Optimizer.py",
+              "dashboard/pages/4_Segment_Audit.py",
+              "dashboard/pages/5_Experiment_Tracker.py",
+          ]
+          failed = False
+          for path in pages:
+              at = AppTest.from_file(path, default_timeout=60)
+              at.run()
+              exceptions = list(at.exception)
+              if exceptions:
+                  failed = True
+                  print(f"FAIL {path}")
+                  for exc in exceptions[:3]:
+                      print(f"  {type(exc.value).__name__}: {exc.value}")
+              else:
+                  print(f"OK   {path}")
+          sys.exit(1 if failed else 0)
+          PY

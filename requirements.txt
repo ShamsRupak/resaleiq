@@ -1,0 +1,33 @@
+# ResaleIQ — Streamlit Community Cloud deployment pins
+#
+# Streamlit Cloud reads this file to build the app environment. The version
+# bands mirror the [project.dependencies] and [project.optional-dependencies]
+# blocks in pyproject.toml, flattened for pip compatibility.
+#
+# To update: change both this file and pyproject.toml, then redeploy.
+
+# Core
+numpy>=1.26,<3
+pandas>=2.2,<3
+pyarrow>=15,<20
+python-dateutil>=2.9,<3
+rich>=13,<14
+typer>=0.12,<1
+
+# Database (optional at runtime; secrets configure connection)
+sqlalchemy>=2.0,<3
+psycopg[binary]>=3.2,<4
+python-dotenv>=1.0,<2
+
+# ML
+scikit-learn>=1.5,<2
+xgboost>=2.0,<3
+matplotlib>=3.9,<4
+
+# Dashboard
+streamlit>=1.38,<2
+plotly>=5.24,<7
+altair>=5.4,<6
+
+# Install the local package so dashboard/ can import resaleiq.*
+-e .

@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: resaleiq_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-resaleiq}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resaleiq}
+      POSTGRES_DB: ${POSTGRES_DB:-resaleiq}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./src/resaleiq/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-resaleiq} -d ${POSTGRES_DB:-resaleiq}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

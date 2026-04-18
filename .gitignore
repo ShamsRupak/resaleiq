@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+build/
+dist/
+
+# uv
+.venv/
+uv.lock
+
+# Environment
+.env
+.env.local
+
+# Testing & coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Generated data: local outputs kept out of git EXCEPT the committed
+# demo dataset used by Streamlit Cloud (parquets are small, ~4MB total,
+# reproducible from MASTER_SEED but committed so the deployed demo
+# works without a managed database).
+data/postgres/
+data/*.csv
+data/*.tmp
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Streamlit local secrets (never commit real credentials)
+.streamlit/secrets.toml
+
+# Local notes (not for public repo)
+docs/INTERVIEW_*.md
+docs/PRIVATE_*.md
+docs/*_private.md
+*.local.md
+notes/
+scratch/
+private/
+local/
+.claude/
+.cursor/

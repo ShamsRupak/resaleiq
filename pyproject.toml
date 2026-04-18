@@ -1,0 +1,125 @@
+[project]
+name = "resaleiq"
+version = "0.1.0"
+description = "Synthetic pricing and lot-optimization playground for wholesale pre-owned mobile device marketplaces."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Shams Rupak" }]
+dependencies = [
+    "numpy>=1.26,<3",
+    "pandas>=2.2,<3",
+    "pyarrow>=15,<20",
+    "python-dateutil>=2.9,<3",
+    "rich>=13,<14",
+    "typer>=0.12,<1",
+]
+
+[project.optional-dependencies]
+db = [
+    "sqlalchemy>=2.0,<3",
+    "psycopg[binary]>=3.2,<4",
+    "python-dotenv>=1.0,<2",
+]
+ml = [
+    "scikit-learn>=1.5,<2",
+    "xgboost>=2.0,<3",
+    "matplotlib>=3.9,<4",
+]
+dashboard = [
+    "streamlit>=1.38,<2",
+    "plotly>=5.24,<7",
+    "altair>=5.4,<6",
+]
+dev = [
+    "pytest>=8,<9",
+    "pytest-cov>=5,<7",
+    "ruff>=0.6,<1",
+    "mypy>=1.11,<2",
+    "pandas-stubs>=2.2,<3",
+]
+
+[project.scripts]
+resaleiq-generate = "resaleiq.data_generation.generate:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/resaleiq"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "SIM", # simplify
+    "RUF", # ruff
+]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N803", "N806"]
+"src/resaleiq/ml/*" = ["N803", "N806"]
+"scripts/*" = ["N803", "N806"]
+
+[tool.mypy]
+python_version = "3.11"
+# We intentionally do not use strict mode. Strict mypy with pandas-stubs
+# produces many false positives on `.apply()`, `.loc[]`, and Series
+# indexing operations that return broad union types. The settings below
+# still catch real bugs (missing type hints, obvious type errors, unused
+# ignores) without the noise.
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+ignore_missing_imports = true
+plugins = []
+
+[[tool.mypy.overrides]]
+module = [
+    "pyarrow.*",
+    "xgboost.*",
+    "altair.*",
+    "plotly.*",
+    "streamlit.*",
+    "matplotlib.*",
+    "sklearn.*",
+    "shap.*",
+    "psycopg.*",
+    "sqlalchemy.*",
+]
+ignore_missing_imports = true
+
+# Relax pandas-heavy modules: pandas operations frequently return broad
+# union types that defeat static typing without extensive casting.
+# The `arg-type` and `call-overload` disables cover pandas-stubs's
+# overconservative handling of `.itertuples()` row access and `.where()`
+# overloads — both safe at runtime, noisy at type-check time.
+[[tool.mypy.overrides]]
+module = [
+    "resaleiq.data_generation.*",
+    "resaleiq.ml.*",
+    "resaleiq.db.*",
+    "resaleiq.sql.*",
+]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disable_error_code = ["arg-type", "call-overload"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+pythonpath = ["src"]
